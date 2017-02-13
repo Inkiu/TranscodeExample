@@ -1,0 +1,30 @@
+<resources>
+    <string name="app_name">TranscodeExample</string>
+
+    <string name="splash_request_permission_detail">
+        This application needs permission for storage access.
+    </string>
+    <string name="splash_request_permission_denied">
+        There was a problem verifying your permissions.
+        Do you want to go to "Application Settings"?
+    </string>
+    <string name="splash_request_permission_error">
+        There was a problem verifying your permissions.
+    </string>
+    <string name="splash_button_detail_setting">Setting</string>
+    <string name="splash_button_ok">OK</string>
+    <string name="splash_button_cancel">Cancel</string>
+
+    <!-- layout values -->
+    <string name="select_video_button"> Select Video </string>
+    <string name="confirm_video_button"> Confirm </string>
+    <string name="explanation">
+        갤러리를 통해 비디오를 선택하면 SeekBar가 나타납니다. \n
+        SeekBar에서 선택한 Progress만큼 동영상의 앞뒤를 자르고 인코딩합니다. \n
+        예를 들어, 30을 선택한다면 동영상의 앞 15, 뒤 15를 인코딩하지 않습니다.
+    </string>
+
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+
+</resources>
