@@ -45,6 +45,7 @@ public class MuxerWrapper {
     private long mAudioDefaultTimeGap = 21333 ;
     private long mAudioTimeGapThreshold = mAudioDefaultTimeGap * 5;
 
+    // this mode will be used for audio mixing.
     public MuxerWrapper(MediaMuxer mMuxer, int mode ) {
         this.mMuxer = mMuxer;
         mSampleInfoList = new ArrayList<>();
@@ -69,6 +70,8 @@ public class MuxerWrapper {
         mVideoTimeGapThreshold = mVideoDefaultTimeGap * 2;
         Log.d(TAG, "setVideoParams: " + mVideoDefaultTimeGap);
     }
+
+    // need accurate calculate one sample timeGap using sampleRate
     public void setAudioParams( int sampleRate ) {
 //        mAudioDefaultTimeGap = MICROSECS_PER_SEC / sampleRate;
 //        mAudioTimeGapThreshold = mAudioDefaultTimeGap * 2;
@@ -81,9 +84,10 @@ public class MuxerWrapper {
         mMuxer.start();
         mMuxerStarted = true;
 
+        // put stored buffers to muxer
         if (mBuffer == null) mBuffer = ByteBuffer.allocate(0);
         mBuffer.flip();
-        Log.v(TAG, "Output format determined, writing " + mSampleInfoList.size() +
+        Log.e(TAG, "Output format determined, writing " + mSampleInfoList.size() +
                 " samples / " + mBuffer.limit() + " bytes to muxer.");
         MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
         int offset = 0;
@@ -97,52 +101,21 @@ public class MuxerWrapper {
     }
 
     private boolean isFormatSetup() {
-
         if (mVideoFormat == null || mAudioFormat == null) return false;
         mVideoTrack = mMuxer.addTrack(mVideoFormat);
         Log.d(TAG, "Added track #" + mVideoTrack + " with " + mVideoFormat.getString(MediaFormat.KEY_MIME) + " to muxer");
         mAudioTrack = mMuxer.addTrack(mAudioFormat);
         Log.v(TAG, "Added track #" + mAudioTrack + " with " + mAudioFormat.getString(MediaFormat.KEY_MIME) + " to muxer");
         return true;
-
-//        switch ( CURRENT_MODE ) {
-//            case MediaEditor.VIDEO_ONLY :
-//                if (mVideoFormat == null) return false;
-//                mVideoTrack = mMuxer.addTrack(mVideoFormat);
-//                Log.d(TAG, "Added track #" + mVideoTrack + " with " + mVideoFormat.getString(MediaFormat.KEY_MIME) + " to muxer");
-//                break;
-//            case MediaEditor.AUDIO_ONLY :
-//                if (mAudioFormat == null) return false;
-//                mAudioTrack = mMuxer.addTrack(mAudioFormat);
-//                Log.v(TAG, "Added track #" + mAudioTrack + " with " + mAudioFormat.getString(MediaFormat.KEY_MIME) + " to muxer");
-//                break;
-//            case MediaEditor.NORMAL :
-//                if (mVideoFormat == null || mAudioFormat == null) return false;
-//                mVideoTrack = mMuxer.addTrack(mVideoFormat);
-//                Log.d(TAG, "Added track #" + mVideoTrack + " with " + mVideoFormat.getString(MediaFormat.KEY_MIME) + " to muxer");
-//                mAudioTrack = mMuxer.addTrack(mAudioFormat);
-//                Log.v(TAG, "Added track #" + mAudioTrack + " with " + mAudioFormat.getString(MediaFormat.KEY_MIME) + " to muxer");
-//                break;
-//            default :
-//                throw new IllegalStateException( "not video or audio mode selected! " );
-//                if (mVideoFormat == null || mAudioFormat == null) return false;
-//                mVideoTrack = mMuxer.addTrack(mVideoFormat);
-//                Log.d(TAG, "Added track #" + mVideoTrack + " with " + mVideoFormat.getString(MediaFormat.KEY_MIME) + " to muxer");
-//                mAudioTrack = mMuxer.addTrack(mAudioFormat);
-//                Log.v(TAG, "Added track #" + mAudioTrack + " with " + mAudioFormat.getString(MediaFormat.KEY_MIME) + " to muxer");
-//                break;
-//        }
-//        return true;
     }
 
     private long calculatePresentationTime ( SampleType type, long receivedTimeUs ) {
         long tmpUs;
         if ( type == SampleType.VIDEO ) {
-            // NOTE When another media inserted
+            // NOTE When another segment inserted
             if ( Math.abs( receivedTimeUs - mVideoLastPresentationTimeUs ) > mVideoTimeGapThreshold ) {
                 tmpUs = mVideoPresentationTimeUs + mVideoDefaultTimeGap;
                 Log.d(TAG, "writeSampleData: -------------------------------------------------------- added default Time gap to Video" );
-
             }
             else {
                 tmpUs = mVideoPresentationTimeUs + Math.abs( receivedTimeUs - mVideoLastPresentationTimeUs);
@@ -151,7 +124,7 @@ public class MuxerWrapper {
             mVideoPresentationTimeUs = tmpUs;
             return tmpUs;
         } else {
-            // NOTE When another media inserted
+            // NOTE When another segment inserted
             if ( Math.abs( receivedTimeUs - mAudioLastPresentationTimeUs ) > mAudioTimeGapThreshold ) {
                 tmpUs = mAudioPresentationTimeUs + mAudioDefaultTimeGap;
                 Log.d(TAG, "writeSampleData: -------------------------------------------------------- added default Time gap to Audio" );
@@ -169,12 +142,15 @@ public class MuxerWrapper {
     public long writeSampleData(SampleType type, ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo ) {
 
         long presentationTimeUs = calculatePresentationTime( type, bufferInfo.presentationTimeUs );
-        if (VERBOSE) Log.d(TAG, "writeSampleData: " + type + " ... " + presentationTimeUs + " ... source ? " + bufferInfo.presentationTimeUs + " / " + byteBuffer.remaining() + " / " + byteBuffer.capacity());
+        if (VERBOSE) Log.d(TAG, "writeSampleData: " + type + " ... " + presentationTimeUs
+                + " ... source ? " + bufferInfo.presentationTimeUs + " / " + byteBuffer.remaining() + " / " + byteBuffer.capacity());
         bufferInfo.set(bufferInfo.offset, bufferInfo.size, presentationTimeUs, bufferInfo.flags);
         if (mMuxerStarted) {
             mMuxer.writeSampleData( getTrackIndex(type), byteBuffer, bufferInfo );
             return presentationTimeUs ;
         }
+
+        // until muxer is not started, store buffer data to sampleInfoList
         byteBuffer.limit( bufferInfo.offset + bufferInfo.size );
         byteBuffer.position(bufferInfo.offset);
         if ( mBuffer == null ) mBuffer = ByteBuffer.allocate(BUFFER_SIZE).order(ByteOrder.nativeOrder());

@@ -45,21 +45,9 @@ public class ThumbnailUtil {
     }
 
 
-//    public void extract(final String filePath, final double intervalSec, final int width, final int height ) {
-//        if (isStarted) throw new IllegalStateException( "Already started!" );
-//        isStarted = true;
-//        extractingStart(filePath, intervalSec, width, height);
-//    }
-
-    public void extractFromNewThread(final String filePath, final double intervalSec, final int width, final int height ) {
-        if (isStarted) throw new IllegalStateException( "Already started!" );
-        isStarted = true;
-        new Thread( () -> {
-                extractingStart(filePath, intervalSec, width, height);
-        }).start();
-    }
-
-
+    /**
+     * this can extract video Thumbnail faster than android API
+     */
     public void extractingStart(final String filePath, final double intervalSec, final int width, final int height ) {
         mExtractor = new MediaExtractor();
         try {

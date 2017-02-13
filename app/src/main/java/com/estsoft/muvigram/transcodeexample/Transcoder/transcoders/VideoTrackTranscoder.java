@@ -49,13 +49,13 @@ public class VideoTrackTranscoder implements TrackTranscoder {
     private boolean mEncodePermitted;
     private boolean mFlipping;
 
+
     public VideoTrackTranscoder(MediaExtractor extractor, MediaFormat outFormat, BufferListener bufferListener, int trackIndex ) {
         this.mExtractor = extractor;
         this.mOutputFormat = outFormat;
         this.mBufferListener = bufferListener;
         this.mTrackIndex = trackIndex;
         this.mBufferInfo = new MediaCodec.BufferInfo();
-//        this.mFlipping = flipping;
     }
 
     @Override
@@ -221,7 +221,6 @@ public class VideoTrackTranscoder implements TrackTranscoder {
             mDecoderOutputSurfaceWrapper.awaitNewImage();
             // NOTE : true to flip
             mDecoderOutputSurfaceWrapper.drawImage( mFlipping );
-//            if ( mEncodePermitted ) {
             if ( mEncodePermitted && mBufferInfo.presentationTimeUs >= mEncodeStartPresentationTimeUs ) {
                 mEncoderInputSurfaceWrapper.setPresentationTime(mBufferInfo.presentationTimeUs * 1000);
                 mEncoderInputSurfaceWrapper.swapBuffers();
@@ -241,7 +240,6 @@ public class VideoTrackTranscoder implements TrackTranscoder {
                     throw new RuntimeException("Video output format changed twice.");
                 mActualOutputFormat = mEncoder.getOutputFormat();
                 mBufferListener.onOutputFormat( BufferListener.BufferType.VIDEO, mActualOutputFormat );
-//                mMuxerWrapper.setOutputFormat(MuxerWrapper.SampleType.VIDEO, mActualOutputFormat);
                 TranscodeUtils.printInformationOf( mActualOutputFormat );
                 return DRAIN_STATE_SHOULD_RETRY_IMMEDIATELY;
             case MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED:
@@ -261,7 +259,6 @@ public class VideoTrackTranscoder implements TrackTranscoder {
         }
         mWrittenPresentationTimeUs = mBufferInfo.presentationTimeUs > 0 ? mBufferInfo.presentationTimeUs : mWrittenPresentationTimeUs;
         mBufferListener.onBufferAvailable( BufferListener.BufferType.VIDEO, mEncoderOutputBuffers[index], mBufferInfo );
-//        mMuxerWrapper.writeSampleData( MuxerWrapper.SampleType.VIDEO, mEncoderOutputBuffers[index], mBufferInfo );
         mEncoder.releaseOutputBuffer( index, false );
         // Since runPipeline wait for only DRAIN_STATE_NONE, timeoutUs must not be negative.
         if (VERBOSE) Log.d(TAG, "drainEncoder:  _____________________________________________________ " + "VIDEO DRAIN_STATE_CONSUMED");
@@ -274,10 +271,12 @@ public class VideoTrackTranscoder implements TrackTranscoder {
     public void forceStop () {
         this.forceExtractingStop = true;
     }
+
     @Override
     public long getExtractedPresentationTimeUs() {
         return mExtractedPresentationTimeUs;
     }
+
     public void encodeStart() {
         this.mEncodeStartPresentationTimeUs = mExtractedPresentationTimeUs;
         Log.d(TAG, "permitEncode: VIDEO Start at " + mEncodeStartPresentationTimeUs);

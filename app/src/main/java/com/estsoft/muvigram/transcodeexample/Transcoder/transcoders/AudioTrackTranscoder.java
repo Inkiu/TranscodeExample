@@ -191,7 +191,6 @@ public class AudioTrackTranscoder implements TrackTranscoder {
                 if (mActualOutputFormat != null) throw new RuntimeException("Video output format changed twice.");
                 mActualOutputFormat = mEncoder.getOutputFormat();
                 mBufferListener.onOutputFormat( BufferListener.BufferType.AUDIO, mActualOutputFormat );
-//                mMuxerWrapper.setOutputFormat( MuxerWrapper.SampleType.AUDIO, mActualOutputFormat );
                 TranscodeUtils.printInformationOf( mActualOutputFormat );
                 return DRAIN_STATE_SHOULD_RETRY_IMMEDIATELY;
             case MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED :
@@ -212,7 +211,6 @@ public class AudioTrackTranscoder implements TrackTranscoder {
         }
         mWrittenPresentationTimeUs = mBufferInfo.presentationTimeUs > 0 ? mBufferInfo.presentationTimeUs : mWrittenPresentationTimeUs;
         mBufferListener.onBufferAvailable( BufferListener.BufferType.AUDIO, mEncoderOutputBuffers[index], mBufferInfo );
-//        mMuxerWrapper.writeSampleData(MuxerWrapper.SampleType.AUDIO, mEncoderOutputBuffers[index], mBufferInfo);
         mEncoder.releaseOutputBuffer( index, false );
         if (VERBOSE) Log.d(TAG, "drainEncoder:  _____________________________________________________ " + "AUDIO DRAIN_STATE_CONSUMED");
         return DRAIN_STATE_CONSUMED;

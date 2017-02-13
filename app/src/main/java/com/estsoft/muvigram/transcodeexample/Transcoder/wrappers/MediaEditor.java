@@ -1,6 +1,5 @@
 package com.estsoft.muvigram.transcodeexample.Transcoder.wrappers;
 
-import android.content.res.AssetFileDescriptor;
 import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
@@ -19,16 +18,16 @@ import java.util.List;
  */
 
 public
-class MediaEditor implements MediaTranscoder {
+class MediaEditor {
     private static final String TAG = "MediaEditor";
     public static final int NORMAL = -12;
     public static final int MUTE_AND_ADD_MUSIC = -13;
     public static final int ADD_MUSIC = -14;
-    private int progressInterval;
 
     private final int CURRENT_MODE;
     private final int outputContainer = MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4;
-    private final MuxerWrapper mMuxer;
+
+    private final MuxerWrapper mMuxerWrapper;
     private final String mOutputFilePath;
     private final MediaTarget mTarget;
     private final List<MediaSegment> mSegmentLists;
@@ -39,6 +38,9 @@ class MediaEditor implements MediaTranscoder {
     private long mTotalEstimatedDuration;
     private long mSegmentTargetDuration;
     private boolean musicSegmentAdded;
+
+    private int progressInterval;
+
 
     public MediaEditor(String outputPath, int transcodeMode, ProgressListener progressListener ) {
         this.mOutputFilePath = outputPath;
@@ -52,73 +54,61 @@ class MediaEditor implements MediaTranscoder {
         } catch ( IOException e ) {
             throw new RuntimeException( e );
         }
-        this.mMuxer = new MuxerWrapper( muxer, CURRENT_MODE );
+        this.mMuxerWrapper = new MuxerWrapper( muxer, CURRENT_MODE );
         this.mListener = progressListener;
     }
 
-    @Override
     public void initVideoTarget(int interval, int frameRate, int bitrate, int rotation, int width, int height ) {
         mTarget.initVideoTarget( interval, frameRate, bitrate, width, height );
-        mMuxer.setOrientation( rotation );
-        mMuxer.setVideoParams( frameRate );
+        mMuxerWrapper.setOrientation( rotation );
+        mMuxerWrapper.setVideoParams( frameRate );
     }
-    @Override
+
     public void initAudioTarget( int sampleRate, int channelCount, int bitrate ) {
         mTarget.initAudioTarget( sampleRate, channelCount, bitrate );
-        mMuxer.setAudioParams( sampleRate );
+        mMuxerWrapper.setAudioParams( sampleRate );
     }
 
 
-    @Override
+    /**
+     * one video (with start point, end point) is a segment
+     **/
     public void addSegment(String inputFilePath, long startTimeUs, long endTimeUs, int audioVolume  ) {
-        if ( musicSegmentAdded ) throw new IllegalStateException( "music segment can be added after all segments added " );
-        if ( !(endTimeUs < 0) && startTimeUs >= endTimeUs) throw new IllegalStateException( "start can't be later than end " );
+        if ( musicSegmentAdded )
+            throw new IllegalStateException( "music segment can be added after all segments added " );
+        if ( !(endTimeUs < 0) && startTimeUs >= endTimeUs)
+            throw new IllegalStateException( "start can't be later than end " );
 
         int mode = MediaSegment.NORMAL;
         if ( CURRENT_MODE == MUTE_AND_ADD_MUSIC ) mode = MediaSegment.VIDEO_ONLY;
         MediaSegment segment = new MediaSegment( mTarget, inputFilePath, mBufferListener,
                 startTimeUs, endTimeUs, audioVolume, mode );
-        // NOTE check startTime over total duration
+
         if ( segment.getStartTimeUs() < segment.getEndTimeUs() ) {
             mSegmentLists.add(segment);
             mTotalEstimatedDuration += segment.getEndTimeUs() - segment.getStartTimeUs();
-            Log.e(TAG, "addSegment: Adding segment ... " + inputFilePath + " / " + segment.getStartTimeUs() + " to " + segment.getEndTimeUs() );
+            Log.e(TAG, "addSegment: Adding segment ... " + inputFilePath + " / "
+                    + segment.getStartTimeUs() + " to " + segment.getEndTimeUs() );
         } else {
-            Log.e(TAG, "addSegment: Skipping segment ... " + inputFilePath + " / " + segment.getStartTimeUs() + " to " + segment.getEndTimeUs());
+            Log.e(TAG, "addSegment: Skipping segment ... " + inputFilePath + " / "
+                    + segment.getStartTimeUs() + " to " + segment.getEndTimeUs());
         }
     }
 
-    @Override
-    public void addLogoSegment(AssetFileDescriptor inputFile, long startTimeUs, long endTimeUs, int audioVolume) {
-        if ( musicSegmentAdded ) throw new IllegalStateException( "music segment can be added after all segments added " );
-        if ( !(endTimeUs < 0) && startTimeUs >= endTimeUs) throw new IllegalStateException( "start can't be later than end " );
 
-        int mode = MediaSegment.NORMAL;
-        if ( CURRENT_MODE == MUTE_AND_ADD_MUSIC ) mode = MediaSegment.VIDEO_ONLY;
-        MediaSegment segment = new MediaSegment( mTarget, inputFile, mBufferListener,
-                startTimeUs, endTimeUs, audioVolume, mode );
-        // NOTE check startTime over total duration
-        if ( segment.getStartTimeUs() < segment.getEndTimeUs() ) {
-            mSegmentLists.add(segment);
-//            mTotalEstimatedDuration += segment.getEndTimeUs() - segment.getStartTimeUs();
-            Log.e(TAG, "addSegment: Adding segment as logo ... " + inputFile.toString() + " / " + segment.getStartTimeUs() + " to " + segment.getEndTimeUs() );
-        } else {
-            Log.e(TAG, "addSegment: Skipping segment ... " + inputFile.toString() + " / " + segment.getStartTimeUs() + " to " + segment.getEndTimeUs() );
-        }
-    }
-
-    @Override
+    /**
+     * if musinSegment is added, origin video's audio will mute.
+     **/
     public void addMusicSegment(String inputFilePath, long offset, int audioVolume ) {
-        if ( CURRENT_MODE == NORMAL ) throw new IllegalStateException( "to add MusicSegment, mode should be ADD_MUSIC or MUTE_AND_ADD_MUSIC " );
+        if ( CURRENT_MODE == NORMAL )
+            throw new IllegalStateException( "to add MusicSegment, mode should be ADD_MUSIC or MUTE_AND_ADD_MUSIC " );
 
         musicSegmentAdded = true;
-//        mMusicSegment = new MediaSegment( mTarget, inputFilePath, mBufferListener,
-//                offset,-1, audioVolume, MediaSegment.AUDIO_ONLY);
         mMusicSegment = new MediaSegment( mTarget, inputFilePath, mBufferListener,
                 offset, mTotalEstimatedDuration + offset, audioVolume, MediaSegment.AUDIO_ONLY);
         Log.d(TAG, "addMusicSegment: " + mTotalEstimatedDuration);
     }
-    @Override
+
     public void startWork() {
         if ( mListener != null ) callListener( ProgressListener.START );
         if ( mMusicSegment != null ) mMusicSegment.prepare();
@@ -137,17 +127,14 @@ class MediaEditor implements MediaTranscoder {
             while ( !segment.checkFinished() ) {
                 segmentStepped = segment.stepOnce();
                 if ( !segmentStepped ) sleepWhile( 20 );
-                    // TODO segment.isAudioEncodingStarted? when ADD_MUSIC MODE
                 else if ( mMusicSegment != null && segment.isVideoEncodingStarted() ) {
                     musicSegmentStepping( segment.getVideoCurrentWrittenTimeUs() + mSegmentTargetDuration - segment.getEndTimeUs());
                 }
                 if (mListener != null) callListener( ProgressListener.PROGRESS );
-                Log.d(TAG, "stepOnce: ");
-
             }
 
-            videoSyncBufferTimeUs = (mMuxer.getVideoPresentationTimeUs() - mSegmentTargetDuration);
-            audioSyncBufferTimeUs = (mMuxer.getAudioPresentationTimeUs() - mSegmentTargetDuration);
+            videoSyncBufferTimeUs = (mMuxerWrapper.getVideoPresentationTimeUs() - mSegmentTargetDuration);
+            audioSyncBufferTimeUs = (mMuxerWrapper.getAudioPresentationTimeUs() - mSegmentTargetDuration);
 
             Log.d(TAG, "start: End of this segment ... target Duration is " + mSegmentTargetDuration );
             segment.release();
@@ -161,8 +148,8 @@ class MediaEditor implements MediaTranscoder {
 
     public void release() {
         if (mMusicSegment != null) mMusicSegment.release();
-        if (!mMuxer.isStopped()) mMuxer.stop();
-        mMuxer.release();
+        if (!mMuxerWrapper.isStopped()) mMuxerWrapper.stop();
+        mMuxerWrapper.release();
     }
 
     private void musicSegmentStepping( long totalProcessed ) {
@@ -178,6 +165,7 @@ class MediaEditor implements MediaTranscoder {
             if ( musicExtracted >= mTotalEstimatedDuration )  mMusicSegment.forceStop();
         }
     }
+
     private void flushMusicSegment() {
         while ( !mMusicSegment.checkFinished() ) {
             Log.e(TAG, "flushMusicSegment: FLUSHING");
@@ -200,10 +188,10 @@ class MediaEditor implements MediaTranscoder {
             case ProgressListener.PROGRESS :
                 if ( ++ progressInterval < ProgressListener.PROGRESS_INTERVAL ) return;
                 progressInterval %= ProgressListener.PROGRESS_INTERVAL;
-                mListener.onProgress( mMuxer.getVideoPresentationTimeUs(), (int) (mMuxer.getVideoPresentationTimeUs() * 100 / mTotalEstimatedDuration) );
+                mListener.onProgress( mMuxerWrapper.getVideoPresentationTimeUs(), (int) (mMuxerWrapper.getVideoPresentationTimeUs() * 100 / mTotalEstimatedDuration) );
                 break;
             case ProgressListener.COMPLETE :
-                mListener.onComplete( mMuxer.getVideoPresentationTimeUs() );
+                mListener.onComplete( mMuxerWrapper.getVideoPresentationTimeUs() );
                 break;
             case ProgressListener.ERROR :
                 mListener.onError( new Exception( "Exception Occurred" ) );
@@ -213,10 +201,13 @@ class MediaEditor implements MediaTranscoder {
         }
     }
 
+    /**
+     * multiple video's encoded buffer goes one video Muxer
+     */
     private final BufferListener mBufferListener = new BufferListener() {
         @Override
         public void onBufferAvailable(BufferType type, ByteBuffer buffer, MediaCodec.BufferInfo bufferInfo) {
-            mMuxer.writeSampleData(
+            mMuxerWrapper.writeSampleData(
                     type == BufferType.VIDEO ? MuxerWrapper.SampleType.VIDEO : MuxerWrapper.SampleType.AUDIO,
                     buffer,
                     bufferInfo );
@@ -224,7 +215,7 @@ class MediaEditor implements MediaTranscoder {
 
         @Override
         public void onOutputFormat(BufferListener.BufferType type, MediaFormat format) {
-            mMuxer.setOutputFormat(
+            mMuxerWrapper.setOutputFormat(
                     type == BufferType.VIDEO ? MuxerWrapper.SampleType.VIDEO : MuxerWrapper.SampleType.AUDIO,
                     format);
         }

@@ -32,7 +32,6 @@ public class AudioChannel {
     private static final long MICROSECS_PER_SEC = 1000000;
 
     private final Queue<AudioSample> mFilledSamples;
-    private final Queue<AudioSample> mBufferedSamples;
     private AudioSample mOverFlowSample = new AudioSample();
 
     private final MediaFormat mEncodeFormat;
@@ -54,7 +53,6 @@ public class AudioChannel {
         this.mEncodeFormat = mEncodeFormat;
         this.mVolume = volume;
         mFilledSamples = new ArrayDeque<>();
-        mBufferedSamples = new ArrayDeque<>();
         mResampler = new Resampler();
     }
 
@@ -65,7 +63,6 @@ public class AudioChannel {
         if (mInputSampleRate != mEncodeSampleRate) {
             mResampleRequired = true;
             Log.e(TAG, "setActualDecodeFormat: Audio Resampling required" + "\tsource : " + mInputSampleRate + "\t target : " + mEncodeFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE) );
-//            throw new UnsupportedOperationException("Audio sample rate conversion not supported yet." + " ||| source : " + mInputSampleRate + " / target : " + mEncodeFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE));
         }
         mInputChannelCount = mActualDecodeFormat.getInteger( MediaFormat.KEY_CHANNEL_COUNT );
         mOutputChannelCount = mEncodeFormat.getInteger( MediaFormat.KEY_CHANNEL_COUNT );
@@ -114,12 +111,6 @@ public class AudioChannel {
         if (VERBOSE) Log.d(TAG, "drainDecoderBufferAndQueue: inqueue ... " + mFilledSamples.size());
     }
 
-    public boolean throwDecoder( final MediaCodec decoder ) {
-        if (mFilledSamples.isEmpty()) return false;
-        final AudioSample inSample = mFilledSamples.poll();
-        decoder.releaseOutputBuffer( inSample.bufferIndex, false );
-        return true;
-    }
 
     public boolean feedEncoder(final MediaCodec decoder, final MediaCodec encoder, long timeoutUs ) {
         final boolean hasOverFlow = mOverFlowSample.data != null && mOverFlowSample.data.hasRemaining();
@@ -148,7 +139,6 @@ public class AudioChannel {
         if (mResampleRequired) {
             short[] samples = new short[ inSample.data.remaining() ];
             inSample.data.get( samples );
-            //TODO
             inSample.data = ShortBuffer.wrap(mResampler.reSample( samples, mInputSampleRate, mEncodeSampleRate));
         }
 
@@ -171,16 +161,12 @@ public class AudioChannel {
         }
 
         return (long)(sampleCount * timePerSample );
-//        return (sampleCount / (MICROSECS_PER_SEC / sampleRate ) / channelCount );
     }
 
     private long drainOverFlow( final ShortBuffer outBuffer ) {
         final ShortBuffer overFlowBuffer = mOverFlowSample.data;
         final int overFlowLimit = overFlowBuffer.limit();
         final int overFlowSize = overFlowBuffer.remaining();
-
-//        final long beginPresentationTimeUs = mOverFlowSample.presentationTimeUs +
-//                sampleCountToDurationUs( overFlowBuffer.remaining(), mInputSampleRate, mOutputChannelCount, false );
         final long beginPresentationTimeUs = mOverFlowSample.presentationTimeUs;
 
         outBuffer.clear();

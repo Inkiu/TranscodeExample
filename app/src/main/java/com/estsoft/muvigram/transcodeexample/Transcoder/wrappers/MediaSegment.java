@@ -55,26 +55,6 @@ public class MediaSegment {
     private boolean mAudioEncodingStarted;
     private boolean mAudioForceStoped;
 
-    public MediaSegment(MediaTarget target, AssetFileDescriptor inputFile, BufferListener bufferListener,
-                        long startTimeUs, long endTimeUs, int audioVolume, int transcodeMode ) {
-        this.mTarget = target;
-        this.mInputFile = inputFile;
-        this.mBufferListener = bufferListener;
-        this.mAudioVolume = audioVolume;
-        this.mExtractor = new MediaExtractor();
-        try {
-            mExtractor.setDataSource( mInputFile.getFileDescriptor(), mInputFile.getStartOffset(), mInputFile.getLength() );
-        } catch ( IOException e ) {
-            throw new RuntimeException( e );
-        }
-        long shortestDuration = getShortestDuration();
-        this.mStartTimeUs = startTimeUs < 0 ? 0 : startTimeUs > shortestDuration ? shortestDuration : startTimeUs;
-        this.mEndTimeUs = endTimeUs < 0 ? shortestDuration : endTimeUs > shortestDuration ? shortestDuration : endTimeUs;
-        Log.e(TAG, "MediaSegment: " + mStartTimeUs + " / " + mEndTimeUs  + " / " + shortestDuration);
-        this.CURRENT_MODE = transcodeMode;
-    }
-
-
     public MediaSegment(MediaTarget target, String mediaFilePath, BufferListener bufferListener,
                         long startTimeUs, long endTimeUs, int audioVolume, int transcodeMode ) {
         this.mTarget = target;
@@ -132,28 +112,19 @@ public class MediaSegment {
         if ( !mVideoEncodingStarted ) checkPermittingVideoEncode();
         // HINT checking over end time
         if ( mVideoEncodingStarted && !mVideoForceStoped ) checkForceStoppingVideo();
-        // HINT when one transcoder is ended
-//        if ( !mAudioForceStoped && mVideoTranscoder.isExtractingFinished() && mAudioCurrentExtractedUs > mVideoCurrentExtractedUs ) {
-//            Log.d(TAG, "stepOnce : AUDIO ???? ");
-//            mAudioTranscoder.release();
-//            mAudioForceStoped = true;
-//        }
+
         boolean stepped = mVideoTranscoder.stepPipeline();
         mVideoCurrentExtractedUs = mVideoTranscoder.getExtractedPresentationTimeUs();
         return stepped;
     }
+
     private boolean audioStepOnce() {
 
         // HINT checking encode Start
         if ( !mAudioEncodingStarted ) checkPermittingAudioEncode();
         // HINT checking over end time
         if ( mAudioEncodingStarted && !mAudioForceStoped ) checkForceStoppingAudio();
-        // HINT when one transcoder is ended
-//        if ( !mVideoForceStoped && mAudioTranscoder.isExtractingFinished() && mVideoCurrentExtractedUs > mAudioCurrentExtractedUs ) {
-//            Log.d(TAG, "stepOnce : VIDEO ???? ");
-//            mVideoTranscoder.release();
-//            mVideoForceStoped = true;
-//        }
+
         boolean stepped = mAudioTranscoder.stepPipeline();
         mAudioCurrentExtractedUs = mAudioTranscoder.getExtractedPresentationTimeUs();
         return stepped;
@@ -253,11 +224,7 @@ public class MediaSegment {
         return second - first;
     }
 
-    private void setupVideoMetaDatas() {
-
-    }
     private void setupVideoTranscoder() {
-
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         if (mInputFilePath == null ) {
             retriever.setDataSource( mInputFile.getFileDescriptor(), mInputFile.getStartOffset(), mInputFile.getLength() );

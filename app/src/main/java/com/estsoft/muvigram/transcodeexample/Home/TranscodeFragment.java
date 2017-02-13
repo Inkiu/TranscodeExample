@@ -77,8 +77,12 @@ public class TranscodeFragment extends Fragment {
         mTmpStorePath = TranscodeUtils.getAppCashingFile( getActivity() );
 
         MediaEditor editor = new MediaEditor( mTmpStorePath, MediaEditor.NORMAL, mTranscodeProgressListener );
+
+        // I-Frame Interval : 1, FPS : 30, bitrate : 5M, video-rotation - 90, resolution : HD
         editor.initVideoTarget(1, 30, 5000000, 90, 1280, 720 );
+        // audio-sampleRate : 44.1k, stereo, bitrate : 128k
         editor.initAudioTarget(44100, 2, 128 * 1000);
+
         for ( int i = 0; i < mVideoPaths.size(); i ++ ) {
             editor.addSegment( mVideoPaths.get(i), mVideoStarts.get(i), mVideoEnds.get(i), 100 );
         }
@@ -103,7 +107,7 @@ public class TranscodeFragment extends Fragment {
 
     private void videoSetAndStart() {
         mVideoView.setVideoPath( mTmpStorePath );
-        mVideoView.setOnCompletionListener( mediaPlayer -> { mVideoView.start(); } );
+        mVideoView.setOnCompletionListener( mediaPlayer ->  mVideoView.start()  );
         mVideoView.setOnPreparedListener(mediaPlayer -> mVideoView.start() );
     }
 
@@ -111,22 +115,24 @@ public class TranscodeFragment extends Fragment {
     private void translateVideoData() {
         for ( VideoData data : mVideoDatas ) {
             mVideoPaths.add( data.videoPath );
+
             // Milli sec to Micro sec
             Long videoDuration = Utils.getVideoDuration( data.videoPath ) * 1000;
             double cutOff = (double)data.cutOffPercent / 200.0d ;
+
             long start = (long)((double)videoDuration * cutOff);
             mVideoStarts.add(start);
+
             long end = (long)((double)videoDuration * ( 1 - cutOff ));
             mVideoEnds.add(end);
-            Log.d(TAG, "translateVideoData: " + videoDuration + " / " + start + " / " + end );
 
         }
     }
 
     private void setProgressInUiThread( String msg ) {
-        getActivity().runOnUiThread(() -> {
-            mProgressText.setText( msg );
-        });
+        getActivity().runOnUiThread(() ->
+            mProgressText.setText( msg )
+        );
     }
 
     /* listeners */

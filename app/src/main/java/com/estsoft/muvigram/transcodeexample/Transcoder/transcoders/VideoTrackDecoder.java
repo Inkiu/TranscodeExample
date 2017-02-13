@@ -15,6 +15,7 @@ import java.nio.ByteBuffer;
 
 /**
  * Created by estsoft on 2016-12-09.
+ * this is for extracting Thumbnail
  */
 
 public class VideoTrackDecoder implements TrackTranscoder {
