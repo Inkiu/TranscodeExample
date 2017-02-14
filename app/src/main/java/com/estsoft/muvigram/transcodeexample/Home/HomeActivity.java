@@ -1,8 +1,12 @@
 package com.estsoft.muvigram.transcodeexample.Home;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
@@ -28,6 +32,7 @@ import butterknife.Unbinder;
 
 public class HomeActivity extends AppCompatActivity {
     private static final String TAG = "HomeActivity";
+    private static final int REQUEST_STORAGE = 1;
     private final int REQUEST_TAKE_VIDEO = 0;
     private List<String> mSelectedVideoPaths = new ArrayList<>();
     private List<SeekBar> mSelectedVideoSeekBars = new ArrayList<>();
@@ -42,8 +47,23 @@ public class HomeActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        if (ActivityCompat.checkSelfPermission( this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED ) {
+            ActivityCompat.requestPermissions( this,
+                    new String[] { Manifest.permission.WRITE_EXTERNAL_STORAGE },
+                    REQUEST_STORAGE );
+        }
+
         setContentView(R.layout.activity_home);
         mUnbinder = ButterKnife.bind( this );
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        if (requestCode == REQUEST_STORAGE) {
+            if ( grantResults[0] != PackageManager.PERMISSION_GRANTED ) this.finish();
+        }
     }
 
     @Override
