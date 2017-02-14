@@ -1,4 +1,4 @@
-package com.estsoft.muvigram.transcodeexample.Models;
+package com.estsoft.muvigram.transcodeexample.Model;
 
 import android.os.Parcel;
 import android.os.Parcelable;
